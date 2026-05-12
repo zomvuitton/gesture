@@ -243,6 +243,7 @@
     <div class="logo">GESTURE<span>//</span>SYS</div>
     <div class="header-right">
       <span id="fps-counter">-- FPS</span>
+      <button id="debug-btn" style="background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;padding:3px 8px;cursor:pointer;">DBG</button>
       <div class="status-dot" id="status-dot"></div>
     </div>
   </header>
@@ -255,6 +256,18 @@
 
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
+
+    <div id="debug-overlay" style="display:none;position:absolute;top:12px;right:12px;z-index:15;background:rgba(0,0,0,0.82);border:1px solid #00ff8844;padding:10px 12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#c8ffd8;line-height:1.9;min-width:230px;pointer-events:none;">
+      <div style="color:#00ff88;letter-spacing:2px;margin-bottom:6px;font-size:10px;">DEBUG // GESTURE</div>
+      <div id="dbg-fingers"></div>
+      <div style="height:1px;background:#00ff8822;margin:6px 0;"></div>
+      <div id="dbg-ok"></div>
+      <div id="dbg-shaka"></div>
+      <div id="dbg-crossed"></div>
+      <div id="dbg-pointdown"></div>
+      <div id="dbg-snap"></div>
+      <div id="dbg-heart"></div>
+    </div>
 
     <div class="start-screen" id="start-screen">
       <div class="start-icon">🖐</div>
@@ -328,6 +341,16 @@ const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 let lastVideoTime = -1;
 let fpsHistory = [], lastFrameTime = 0;
+let debugMode = false;
+
+document.getElementById('debug-btn').addEventListener('click', () => {
+  debugMode = !debugMode;
+  const btn = document.getElementById('debug-btn');
+  const overlay = document.getElementById('debug-overlay');
+  btn.style.borderColor = debugMode ? 'var(--green)' : 'var(--text-dim)';
+  btn.style.color = debugMode ? 'var(--green)' : 'var(--text-dim)';
+  overlay.style.display = debugMode ? 'block' : 'none';
+});
 
 async function init() {
   const btn         = document.getElementById('start-btn');
@@ -465,7 +488,9 @@ function loop() {
   }
 
   const faceExpr = detectFaceExpression(faceResults);
+  const firstLm = gestureResults.landmarks?.[0] || null;
   updatePanel(topGesture, topConf, totalFingers, handCount, faceExpr);
+  if (debugMode) updateDebug(firstLm, gestureResults.landmarks || []);
 }
 
 // ─── Custom gestures ──────────────────────────────────────
@@ -485,6 +510,18 @@ function dist2D(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function segmentsIntersect(p1, p2, p3, p4) {
+  const d1 = cross(p3, p4, p1), d2 = cross(p3, p4, p2);
+  const d3 = cross(p1, p2, p3), d4 = cross(p1, p2, p4);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+  return false;
+}
+
+function cross(a, b, c) {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
 function detectCustomGesture(lm, allLandmarks) {
   const [thumb, index, middle, ring, pinky] = fingerStates(lm);
 
@@ -494,24 +531,25 @@ function detectCustomGesture(lm, allLandmarks) {
   // 🤙 Shaka
   if (thumb && !index && !middle && !ring && pinky) return 'Shaka';
 
-  // 🤞 Crossed fingers
-  if (!thumb && index && middle && !ring && !pinky &&
-      Math.abs(lm[8].x - lm[12].x) < 0.045) return 'Crossed';
+  // 🤞 Crossed: index-middle segment intersection
+  if (index && middle && !ring && !pinky &&
+      segmentsIntersect(lm[5], lm[8], lm[9], lm[12])) return 'Crossed';
 
   // 👇 Pointing down
   if (!thumb && index && !middle && !ring && !pinky &&
       lm[8].y > lm[5].y + 0.04) return 'PointDown';
 
-  // 🫰 Finger snap (thumb near middle, index up)
-  if (dist2D(lm[4], lm[12]) < 0.07 && index && !ring && !pinky) return 'FingerSnap';
+  // 🫰 Finger snap: thumb-index tips touching + V form (roots apart), other fingers free
+  if (dist2D(lm[4], lm[8]) < 0.05 && dist2D(lm[2], lm[5]) > 0.08) return 'FingerSnap';
 
-  // 🫶 Heart hands (two hands, thumbs close together)
+  // 🫶 Heart hands: tips close, but wrists farther apart than thumbs (no fist)
   if (allLandmarks.length === 2) {
     const other = allLandmarks.find(l => l !== lm);
     if (other) {
       const fo = fingerStates(other);
-      const tipsClose = dist2D(lm[4], other[4]) < 0.22 && dist2D(lm[8], other[8]) < 0.22;
-      if (thumb && fo[0] && tipsClose) return 'HeartHands';
+      const thumbDist = dist2D(lm[4], other[4]);
+      const wristDist = dist2D(lm[0], other[0]);
+      if (thumb && fo[0] && thumbDist < 0.22 && wristDist > thumbDist * 1.5) return 'HeartHands';
     }
   }
 
@@ -636,6 +674,51 @@ function updatePanel(gesture, confidence, fingers, hands, faceExpr) {
     faceEl.textContent = '—';
     faceEl.className = 'panel-value face none';
     faceFill.style.width = '0%';
+  }
+}
+
+// ─── Debug ────────────────────────────────────────────────
+function dbgRow(id, label, value, threshold, pass, unit = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const col = pass ? '#00ff88' : '#ff3366';
+  const sym = pass ? '✓' : '✗';
+  el.innerHTML = `<span style="color:#4a8a5a">${label}:</span> <span style="color:${col}">${value}${unit} ${sym}</span> <span style="color:#2a4a3a">(${threshold}${unit})</span>`;
+}
+
+function updateDebug(lm, allLandmarks) {
+  if (!lm) {
+    ['dbg-fingers','dbg-ok','dbg-shaka','dbg-crossed','dbg-pointdown','dbg-snap','dbg-heart']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+    document.getElementById('dbg-fingers').innerHTML = '<span style="color:#4a8a5a">el yok</span>';
+    return;
+  }
+
+  const [thumb, index, middle, ring, pinky] = fingerStates(lm);
+  const names = ['T','I','M','R','P'];
+  const states = [thumb, index, middle, ring, pinky];
+  document.getElementById('dbg-fingers').innerHTML =
+    '<span style="color:#4a8a5a">parmaklar: </span>' +
+    names.map((n, i) => `<span style="color:${states[i] ? '#00ff88' : '#ff3366'}">${n}:${states[i]}</span>`).join(' ');
+
+  const dOK       = dist2D(lm[4], lm[8]);
+  const dSnapTips = dist2D(lm[4], lm[8]);
+  const dSnapRoot = dist2D(lm[2], lm[5]);
+  const xCross    = segmentsIntersect(lm[5], lm[8], lm[9], lm[12]);
+  const yDown     = lm[8].y - lm[5].y;
+
+  dbgRow('dbg-ok',        '👌 d(T-I)',      dOK.toFixed(3),       '< 0.07',  dOK < 0.07);
+  dbgRow('dbg-shaka',     '🤙 T+P only',   `${thumb}${index}${middle}${ring}${pinky}`, '10001', thumb && !index && !middle && !ring && pinky);
+  dbgRow('dbg-crossed',   '🤞 kesişim',     xCross ? 'VAR' : 'YOK', 'VAR',   xCross);
+  dbgRow('dbg-pointdown', '👇 y(tip-mcp)', yDown.toFixed(3),      '> 0.04',  yDown > 0.04);
+  dbgRow('dbg-snap',      '🫰 tips/roots', `${dSnapTips.toFixed(3)} / ${dSnapRoot.toFixed(3)}`, '< 0.05 / > 0.08', dSnapTips < 0.05 && dSnapRoot > 0.08);
+
+  if (allLandmarks.length === 2) {
+    const other = allLandmarks.find(l => l !== lm);
+    const d = other ? dist2D(lm[4], other[4]).toFixed(3) : '—';
+    dbgRow('dbg-heart', '🫶 d(T-T)', d, '< 0.22', parseFloat(d) < 0.22);
+  } else {
+    document.getElementById('dbg-heart').innerHTML = '<span style="color:#2a4a3a">🫶 tek el</span>';
   }
 }
 
