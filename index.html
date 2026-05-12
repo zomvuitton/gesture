@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GESTURE//SYS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #00ff88;
+      --green-dim: #00ff8844;
+      --green-glow: #00ff8822;
+      --red: #ff3366;
+      --bg: #040a06;
+      --surface: #080f09;
+      --border: #00ff8833;
+      --text: #c8ffd8;
+      --text-dim: #4a8a5a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 14px;
+      color: var(--green);
+      letter-spacing: 3px;
+      text-shadow: 0 0 20px var(--green);
+    }
+
+    .logo span {
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .status-dot.active {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    /* Camera area */
+    .camera-wrap {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      background: #000;
+    }
+
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror */
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror to match video */
+    }
+
+    /* Corner brackets */
+    .corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .corner.tl { top: 12px; left: 12px; border-top: 2px solid var(--green); border-left: 2px solid var(--green); }
+    .corner.tr { top: 12px; right: 12px; border-top: 2px solid var(--green); border-right: 2px solid var(--green); }
+    .corner.bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--green); border-left: 2px solid var(--green); }
+    .corner.br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--green); border-right: 2px solid var(--green); }
+
+    /* Start screen */
+    .start-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 20;
+      background: var(--bg);
+    }
+
+    .start-icon {
+      font-size: 64px;
+      filter: grayscale(1) brightness(0.4);
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .start-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--green);
+      text-shadow: 0 0 30px var(--green);
+      letter-spacing: 4px;
+      text-align: center;
+    }
+
+    .start-sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-align: center;
+    }
+
+    .start-btn {
+      padding: 14px 40px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      box-shadow: 0 0 20px var(--green-glow), inset 0 0 20px var(--green-glow);
+    }
+
+    .start-btn:hover, .start-btn:active {
+      background: var(--green-dim);
+      box-shadow: 0 0 40px var(--green-dim), inset 0 0 20px var(--green-dim);
+    }
+
+    .loading-text {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      display: none;
+    }
+
+    .loading-bar {
+      width: 200px;
+      height: 2px;
+      background: var(--border);
+      display: none;
+      overflow: hidden;
+    }
+
+    .loading-bar-inner {
+      height: 100%;
+      background: var(--green);
+      width: 0%;
+      transition: width 0.3s;
+      box-shadow: 0 0 10px var(--green);
+    }
+
+    /* Bottom panel */
+    .panel {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .panel-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .panel-label {
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .panel-value {
+      font-size: 16px;
+      color: var(--green);
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      text-shadow: 0 0 10px var(--green-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .panel-value.none {
+      color: var(--text-dim);
+      text-shadow: none;
+    }
+
+    .confidence-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      width: 0%;
+      transition: width 0.15s ease;
+    }
+
+    /* Gesture history */
+    .gesture-flash {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(18px, 5vw, 36px);
+      font-weight: 900;
+      color: var(--green);
+      text-shadow: 0 0 40px var(--green), 0 0 80px var(--green-dim);
+      letter-spacing: 4px;
+      pointer-events: none;
+      z-index: 15;
+      opacity: 0;
+      transition: opacity 0.1s;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .gesture-flash.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo">GESTURE<span>//</span>SYS</div>
+    <div class="header-right">
+      <span id="fps-counter">-- FPS</span>
+      <div class="status-dot" id="status-dot"></div>
+    </div>
+  </header>
+
+  <div class="camera-wrap" id="camera-wrap">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="canvas"></canvas>
+
+    <div class="gesture-flash" id="gesture-flash"></div>
+
+    <div class="start-screen" id="start-screen">
+      <div class="start-icon">🖐</div>
+      <div class="start-title">GESTURE//SYS</div>
+      <div class="start-sub">REAL-TIME HAND TRACKING</div>
+      <button class="start-btn" id="start-btn">BAŞLAT</button>
+      <div class="loading-text" id="loading-text">MODEL YÜKLENİYOR...</div>
+      <div class="loading-bar" id="loading-bar">
+        <div class="loading-bar-inner" id="loading-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-item">
+      <div class="panel-label">GESTURE</div>
+      <div class="panel-value none" id="panel-gesture">—</div>
+      <div class="confidence-bar"><div class="confidence-fill" id="conf-fill"></div></div>
+    </div>
+    <div class="panel-item">
+      <div class="panel-label">FINGERS</div>
+      <div class="panel-value none" id="panel-fingers">—</div>
+    </div>
+    <div class="panel-item">
+      <div class="panel-label">HANDS</div>
+      <div class="panel-value none" id="panel-hands">—</div>
+    </div>
+  </div>
+
+<script type="module">
+import {
+  GestureRecognizer,
+  FilesetResolver,
+  DrawingUtils
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+const GESTURE_LABELS = {
+  "None": "YOK",
+  "Closed_Fist": "YUMRUK",
+  "Open_Palm": "AÇIK EL",
+  "Pointing_Up": "YUKARI",
+  "Thumb_Down": "BAŞPARMAK ↓",
+  "Thumb_Up": "BAŞPARMAK ↑",
+  "Victory": "ZAFER ✌",
+  "ILoveYou": "ILY 🤘"
+};
+
+let gestureRecognizer;
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let ctx = canvas.getContext('2d');
+let lastVideoTime = -1;
+let animId;
+let fpsHistory = [];
+let lastFrameTime = 0;
+let lastGesture = '';
+let flashTimeout;
+
+async function init() {
+  const btn = document.getElementById('start-btn');
+  const loadingText = document.getElementById('loading-text');
+  const loadingBar = document.getElementById('loading-bar');
+  const loadingFill = document.getElementById('loading-fill');
+
+  btn.style.display = 'none';
+  loadingText.style.display = 'block';
+  loadingBar.style.display = 'block';
+
+  // Simulate progress while loading
+  let progress = 0;
+  const progressInterval = setInterval(() => {
+    progress = Math.min(progress + Math.random() * 15, 85);
+    loadingFill.style.width = progress + '%';
+  }, 300);
+
+  try {
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+    );
+
+    gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+        delegate: "GPU"
+      },
+      runningMode: "VIDEO",
+      numHands: 2,
+    });
+
+    clearInterval(progressInterval);
+    loadingFill.style.width = '100%';
+
+    await startCamera();
+
+    loadingFill.style.width = '100%';
+    setTimeout(() => {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('status-dot').classList.add('active');
+    }, 300);
+
+  } catch (err) {
+    clearInterval(progressInterval);
+    loadingText.textContent = 'HATA: ' + err.message;
+    loadingText.style.color = 'var(--red)';
+    btn.style.display = 'block';
+    btn.textContent = 'TEKRAR DENE';
+    btn.style.borderColor = 'var(--red)';
+    btn.style.color = 'var(--red)';
+  }
+}
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    }
+  });
+  video.srcObject = stream;
+  await new Promise(r => video.onloadedmetadata = r);
+  video.play();
+  resizeCanvas();
+  loop();
+}
+
+function resizeCanvas() {
+  const wrap = document.getElementById('camera-wrap');
+  canvas.width = wrap.offsetWidth;
+  canvas.height = wrap.offsetHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+function loop() {
+  animId = requestAnimationFrame(loop);
+
+  if (!video.videoWidth || video.currentTime === lastVideoTime) return;
+  lastVideoTime = video.currentTime;
+
+  // FPS
+  const now = performance.now();
+  if (lastFrameTime) {
+    fpsHistory.push(1000 / (now - lastFrameTime));
+    if (fpsHistory.length > 10) fpsHistory.shift();
+    const fps = Math.round(fpsHistory.reduce((a,b) => a+b) / fpsHistory.length);
+    document.getElementById('fps-counter').textContent = fps + ' FPS';
+  }
+  lastFrameTime = now;
+
+  // Run recognition
+  const results = gestureRecognizer.recognizeForVideo(video, now);
+
+  // Scale video to canvas
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const cw = canvas.width;
+  const ch = canvas.height;
+
+  const scale = Math.max(cw / vw, ch / vh);
+  const dw = vw * scale;
+  const dh = vh * scale;
+  const dx = (cw - dw) / 2;
+  const dy = (ch - dh) / 2;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  const drawingUtils = new DrawingUtils(ctx);
+
+  let topGesture = 'None';
+  let topConf = 0;
+  let handCount = 0;
+  let totalFingers = 0;
+
+  if (results.landmarks && results.landmarks.length > 0) {
+    handCount = results.landmarks.length;
+
+    results.landmarks.forEach((landmarks, i) => {
+      // Scale landmarks from normalized [0,1] to canvas coords
+      const scaledLandmarks = landmarks.map(lm => ({
+        x: lm.x * dw + dx,
+        y: lm.y * dh + dy,
+        z: lm.z
+      }));
+
+      // Draw connections manually for the scaled coords
+      drawScaledHand(scaledLandmarks);
+
+      // Count fingers
+      totalFingers += countFingers(landmarks);
+
+      // Gestures
+      if (results.gestures[i] && results.gestures[i][0]) {
+        const g = results.gestures[i][0];
+        if (g.score > topConf) {
+          topConf = g.score;
+          topGesture = g.categoryName;
+        }
+      }
+    });
+  }
+
+  // Update panels
+  updatePanel(topGesture, topConf, totalFingers, handCount);
+}
+
+function drawScaledHand(landmarks) {
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [13,17],[17,18],[18,19],[19,20],
+    [0,17]
+  ];
+
+  // Draw connections
+  ctx.strokeStyle = '#00ff8866';
+  ctx.lineWidth = 2;
+  connections.forEach(([a, b]) => {
+    ctx.beginPath();
+    ctx.moveTo(landmarks[a].x, landmarks[a].y);
+    ctx.lineTo(landmarks[b].x, landmarks[b].y);
+    ctx.stroke();
+  });
+
+  // Draw joints
+  landmarks.forEach((lm, i) => {
+    const isTip = [4, 8, 12, 16, 20].includes(i);
+    ctx.beginPath();
+    ctx.arc(lm.x, lm.y, isTip ? 6 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = isTip ? '#00ff88' : '#00ff8899';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = isTip ? 12 : 6;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function countFingers(landmarks) {
+  // landmarks is normalized [0,1]
+  const tips   = [4, 8, 12, 16, 20];
+  const bases  = [2, 6, 10, 14, 18];
+  let count = 0;
+
+  // Thumb: compare x distance
+  const thumbTip = landmarks[4];
+  const thumbBase = landmarks[2];
+  const wrist = landmarks[0];
+  if (Math.abs(thumbTip.x - wrist.x) > Math.abs(thumbBase.x - wrist.x)) count++;
+
+  // Other fingers: tip.y < pip.y means extended
+  for (let i = 1; i < 5; i++) {
+    if (landmarks[tips[i]].y < landmarks[bases[i]].y) count++;
+  }
+  return count;
+}
+
+let lastPanelGesture = '';
+
+function updatePanel(gesture, confidence, fingers, hands) {
+  const panelGesture = document.getElementById('panel-gesture');
+  const panelFingers = document.getElementById('panel-fingers');
+  const panelHands = document.getElementById('panel-hands');
+  const confFill = document.getElementById('conf-fill');
+  const flash = document.getElementById('gesture-flash');
+
+  const label = GESTURE_LABELS[gesture] || gesture;
+  const noHands = hands === 0;
+
+  panelGesture.textContent = noHands ? '—' : label;
+  panelGesture.className = 'panel-value' + (noHands || gesture === 'None' ? ' none' : '');
+
+  panelFingers.textContent = noHands ? '—' : fingers;
+  panelFingers.className = 'panel-value' + (noHands ? ' none' : '');
+
+  panelHands.textContent = noHands ? '—' : hands;
+  panelHands.className = 'panel-value' + (noHands ? ' none' : '');
+
+  confFill.style.width = noHands ? '0%' : Math.round(confidence * 100) + '%';
+
+  // Flash on gesture change
+  if (gesture !== 'None' && gesture !== lastPanelGesture && !noHands) {
+    flash.textContent = label;
+    flash.classList.add('show');
+    clearTimeout(flashTimeout);
+    flashTimeout = setTimeout(() => flash.classList.remove('show'), 800);
+  }
+  lastPanelGesture = gesture;
+}
+
+document.getElementById('start-btn').addEventListener('click', init);
+</script>
+
+</body>
+</html>
