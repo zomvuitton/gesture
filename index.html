@@ -240,7 +240,7 @@
 <body>
 
   <header class="header">
-    <div class="logo">GESTURE<span>//</span>SYS</div>
+    <div class="logo">C.I.R.A.N<span>.</span></div>
     <div class="header-right">
       <span id="fps-counter">-- FPS</span>
       <button id="debug-btn" style="background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;padding:3px 8px;cursor:pointer;">DBG</button>
@@ -258,7 +258,7 @@
     <canvas id="canvas"></canvas>
 
     <div id="debug-overlay" style="display:none;position:absolute;top:12px;right:12px;z-index:15;background:rgba(0,0,0,0.82);border:1px solid #00ff8844;padding:10px 12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#c8ffd8;line-height:1.9;min-width:230px;pointer-events:none;">
-      <div style="color:#00ff88;letter-spacing:2px;margin-bottom:6px;font-size:10px;">DEBUG // GESTURE</div>
+      <div style="color:#00ff88;letter-spacing:2px;margin-bottom:6px;font-size:10px;">C.I.R.A.N. // DEBUG</div>
       <div id="dbg-fingers"></div>
       <div style="height:1px;background:#00ff8822;margin:6px 0;"></div>
       <div id="dbg-ok"></div>
@@ -270,9 +270,8 @@
     </div>
 
     <div class="start-screen" id="start-screen">
-      <div class="start-icon">🖐</div>
-      <div class="start-title">GESTURE//SYS</div>
-      <div class="start-sub">EL + YÜZ TANIMA</div>
+      <div class="start-title">C.I.R.A.N.</div>
+      <div class="start-sub">CONTROL INTEGRATED RESPONSIVE AI NETWORK</div>
       <button class="start-btn" id="start-btn">BAŞLAT</button>
       <div class="loading-text" id="loading-text">MODEL YÜKLENİYOR...</div>
       <div class="loading-bar" id="loading-bar">
@@ -283,7 +282,7 @@
 
   <div class="panel">
     <div class="panel-item">
-      <div class="panel-label">GESTURE</div>
+      <div class="panel-label">HAREKET</div>
       <div class="panel-value none" id="panel-gesture">—</div>
       <div class="confidence-bar"><div class="confidence-fill" id="conf-fill"></div></div>
     </div>
@@ -487,16 +486,33 @@ function loop() {
     });
   }
 
+  // Orta parmak → başlangıç ekranına dön
+  if (topGesture === 'MiddleFinger') {
+    showStartScreen();
+    return;
+  }
+
   const faceExpr = detectFaceExpression(faceResults);
   const firstLm = gestureResults.landmarks?.[0] || null;
   updatePanel(topGesture, topConf, totalFingers, handCount, faceExpr);
   if (debugMode) updateDebug(firstLm, gestureResults.landmarks || []);
 }
 
+function showStartScreen() {
+  const screen = document.getElementById('start-screen');
+  screen.style.display = 'flex';
+  const btn = document.getElementById('start-btn');
+  btn.style.display = 'block';
+  btn.textContent = 'YENİDEN BAŞLAT';
+  document.getElementById('loading-text').style.display = 'none';
+  document.getElementById('loading-bar').style.display = 'none';
+  document.getElementById('status-dot').classList.remove('active');
+}
+
 // ─── Custom gestures ──────────────────────────────────────
 function fingerStates(lm) {
   const wrist = lm[0];
-  const thumbExtended = Math.abs(lm[4].x - wrist.x) > Math.abs(lm[2].x - wrist.x) + 0.02;
+  const thumbExtended = Math.abs(lm[4].x - wrist.x) > Math.abs(lm[2].x - wrist.x);
   return [
     thumbExtended ? 1 : 0,
     lm[8].y  < lm[6].y  ? 1 : 0,
@@ -540,7 +556,10 @@ function detectCustomGesture(lm, allLandmarks) {
       lm[8].y > lm[5].y + 0.04) return 'PointDown';
 
   // 🫰 Finger snap: thumb-index tips touching + V form (roots apart), other fingers free
-  if (dist2D(lm[4], lm[8]) < 0.05 && dist2D(lm[2], lm[5]) > 0.08) return 'FingerSnap';
+  if (dist2D(lm[4], lm[8]) < 0.05 && dist2D(lm[2], lm[5]) > 0.065) return 'FingerSnap';
+
+  // 🖕 Middle finger only → exit
+  if (!thumb && !index && middle && !ring && !pinky) return 'MiddleFinger';
 
   // 🫶 Heart hands: tips close, but wrists farther apart than thumbs (no fist)
   if (allLandmarks.length === 2) {
@@ -711,7 +730,7 @@ function updateDebug(lm, allLandmarks) {
   dbgRow('dbg-shaka',     '🤙 T+P only',   `${thumb}${index}${middle}${ring}${pinky}`, '10001', thumb && !index && !middle && !ring && pinky);
   dbgRow('dbg-crossed',   '🤞 kesişim',     xCross ? 'VAR' : 'YOK', 'VAR',   xCross);
   dbgRow('dbg-pointdown', '👇 y(tip-mcp)', yDown.toFixed(3),      '> 0.04',  yDown > 0.04);
-  dbgRow('dbg-snap',      '🫰 tips/roots', `${dSnapTips.toFixed(3)} / ${dSnapRoot.toFixed(3)}`, '< 0.05 / > 0.08', dSnapTips < 0.05 && dSnapRoot > 0.08);
+  dbgRow('dbg-snap',      '🫰 tips/roots', `${dSnapTips.toFixed(3)} / ${dSnapRoot.toFixed(3)}`, '< 0.05 / > 0.065', dSnapTips < 0.05 && dSnapRoot > 0.065);
 
   if (allLandmarks.length === 2) {
     const other = allLandmarks.find(l => l !== lm);
@@ -722,7 +741,15 @@ function updateDebug(lm, allLandmarks) {
   }
 }
 
-document.getElementById('start-btn').addEventListener('click', init);
+document.getElementById('start-btn').addEventListener('click', () => {
+  // Eğer model zaten yüklüyse sadece ekranı kapat
+  if (gestureRecognizer && faceLandmarker) {
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('status-dot').classList.add('active');
+  } else {
+    init();
+  }
+});
 </script>
 
 </body>
