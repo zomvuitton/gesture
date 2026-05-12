@@ -9,8 +9,8 @@
     :root {
       --green: #00ff88;
       --green-dim: #00ff8844;
-      --green-glow: #00ff8822;
       --red: #ff3366;
+      --blue: #00aaff;
       --bg: #040a06;
       --surface: #080f09;
       --border: #00ff8833;
@@ -30,23 +30,6 @@
       flex-direction: column;
     }
 
-    /* Scanline overlay */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.08) 2px,
-        rgba(0,0,0,0.08) 4px
-      );
-      pointer-events: none;
-      z-index: 100;
-    }
-
-    /* Header */
     .header {
       display: flex;
       align-items: center;
@@ -65,22 +48,16 @@
       letter-spacing: 3px;
     }
 
-    .logo span {
-      color: var(--text-dim);
-      font-weight: 400;
-    }
+    .logo span { color: var(--text-dim); font-weight: 400; }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: var(--red);
       animation: pulse 1.5s ease-in-out infinite;
     }
 
-    .status-dot.active {
-      background: var(--green);
-    }
+    .status-dot.active { background: var(--green); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
@@ -96,7 +73,6 @@
       letter-spacing: 1px;
     }
 
-    /* Camera area */
     .camera-wrap {
       position: relative;
       flex: 1;
@@ -110,7 +86,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1); /* mirror */
+      transform: scaleX(-1);
     }
 
     canvas {
@@ -118,15 +94,12 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1); /* mirror to match video */
+      transform: scaleX(-1);
     }
 
-    /* Corner brackets */
     .corner {
       position: absolute;
-      width: 24px;
-      height: 24px;
+      width: 24px; height: 24px;
       z-index: 10;
       pointer-events: none;
     }
@@ -135,7 +108,6 @@
     .corner.bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--green); border-left: 2px solid var(--green); }
     .corner.br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--green); border-right: 2px solid var(--green); }
 
-    /* Start screen */
     .start-screen {
       position: absolute;
       inset: 0;
@@ -185,12 +157,10 @@
       letter-spacing: 3px;
       cursor: pointer;
       text-transform: uppercase;
-      transition: all 0.2s;
+      transition: background 0.2s;
     }
 
-    .start-btn:hover, .start-btn:active {
-      background: var(--green-dim);
-    }
+    .start-btn:active { background: var(--green-dim); }
 
     .loading-text {
       font-size: 11px;
@@ -214,32 +184,30 @@
       transition: width 0.3s;
     }
 
-    /* Bottom panel */
     .panel {
       flex-shrink: 0;
       background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 12px 16px;
+      padding: 10px 16px;
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
+      grid-template-columns: 2fr 2fr 1fr 1fr;
+      gap: 6px 12px;
     }
 
     .panel-item {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
     .panel-label {
       font-size: 9px;
       color: var(--text-dim);
       letter-spacing: 2px;
-      text-transform: uppercase;
     }
 
     .panel-value {
-      font-size: 16px;
+      font-size: 13px;
       color: var(--green);
       font-family: 'Orbitron', monospace;
       font-weight: 700;
@@ -248,13 +216,11 @@
       text-overflow: ellipsis;
     }
 
-    .panel-value.none {
-      color: var(--text-dim);
-      text-shadow: none;
-    }
+    .panel-value.face { color: var(--blue); }
+    .panel-value.none { color: var(--text-dim); }
 
     .confidence-bar {
-      height: 3px;
+      height: 2px;
       background: var(--border);
       border-radius: 2px;
       overflow: hidden;
@@ -268,6 +234,7 @@
       transition: width 0.15s ease;
     }
 
+    .confidence-fill.face { background: var(--blue); }
   </style>
 </head>
 <body>
@@ -292,7 +259,7 @@
     <div class="start-screen" id="start-screen">
       <div class="start-icon">🖐</div>
       <div class="start-title">GESTURE//SYS</div>
-      <div class="start-sub">REAL-TIME HAND TRACKING</div>
+      <div class="start-sub">EL + YÜZ TANIMA</div>
       <button class="start-btn" id="start-btn">BAŞLAT</button>
       <div class="loading-text" id="loading-text">MODEL YÜKLENİYOR...</div>
       <div class="loading-bar" id="loading-bar">
@@ -308,11 +275,16 @@
       <div class="confidence-bar"><div class="confidence-fill" id="conf-fill"></div></div>
     </div>
     <div class="panel-item">
-      <div class="panel-label">FINGERS</div>
+      <div class="panel-label">YÜZ İFADESİ</div>
+      <div class="panel-value face none" id="panel-face">—</div>
+      <div class="confidence-bar"><div class="confidence-fill face" id="face-fill"></div></div>
+    </div>
+    <div class="panel-item">
+      <div class="panel-label">PARMAK</div>
       <div class="panel-value none" id="panel-fingers">—</div>
     </div>
     <div class="panel-item">
-      <div class="panel-label">HANDS</div>
+      <div class="panel-label">EL</div>
       <div class="panel-value none" id="panel-hands">—</div>
     </div>
   </div>
@@ -320,45 +292,56 @@
 <script type="module">
 import {
   GestureRecognizer,
-  FilesetResolver,
-  DrawingUtils
+  FaceLandmarker,
+  FilesetResolver
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
 const GESTURE_LABELS = {
-  "None": "YOK",
-  "Closed_Fist": "YUMRUK",
-  "Open_Palm": "AÇIK EL",
-  "Pointing_Up": "YUKARI",
-  "Thumb_Down": "BAŞPARMAK ↓",
-  "Thumb_Up": "BAŞPARMAK ↑",
-  "Victory": "ZAFER ✌",
-  "ILoveYou": "ILY 🤘"
+  "None":        { label: "YOK",          emoji: "" },
+  "Closed_Fist": { label: "YUMRUK",       emoji: "✊" },
+  "Open_Palm":   { label: "AÇIK EL",      emoji: "🖐" },
+  "Pointing_Up": { label: "YUKARI",       emoji: "☝️" },
+  "Thumb_Down":  { label: "BAŞP. AŞAĞI",  emoji: "👎" },
+  "Thumb_Up":    { label: "BAŞP. YUKARI", emoji: "👍" },
+  "Victory":     { label: "ZAFER",        emoji: "✌️" },
+  "ILoveYou":    { label: "ILY",          emoji: "🤟" },
+  "OK":          { label: "TAMAM",        emoji: "👌" },
+  "Shaka":       { label: "SHAKA",        emoji: "🤙" },
+  "Crossed":     { label: "NAZAR",        emoji: "🤞" },
+  "PointDown":   { label: "AŞAĞI",        emoji: "👇" },
+  "FingerSnap":  { label: "SNAP",         emoji: "🫰" },
+  "HeartHands":  { label: "KALP EL",      emoji: "🫶" },
 };
 
-let gestureRecognizer;
-let video = document.getElementById('video');
-let canvas = document.getElementById('canvas');
-let ctx = canvas.getContext('2d');
+const FACE_LABELS = {
+  "smile":    { label: "GÜLÜMSEME", emoji: "😊" },
+  "surprise": { label: "ŞAŞKIN",   emoji: "😮" },
+  "angry":    { label: "KIZGIN",   emoji: "😠" },
+  "sad":      { label: "ÜZGÜN",    emoji: "😞" },
+  "wink":     { label: "GÖZ KIRP", emoji: "😉" },
+  "neutral":  { label: "NÖTR",     emoji: "😐" },
+};
+
+let gestureRecognizer, faceLandmarker;
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
 let lastVideoTime = -1;
-let animId;
-let fpsHistory = [];
-let lastFrameTime = 0;
-let lastGesture = '';
+let fpsHistory = [], lastFrameTime = 0;
 
 async function init() {
-  const btn = document.getElementById('start-btn');
+  const btn         = document.getElementById('start-btn');
   const loadingText = document.getElementById('loading-text');
-  const loadingBar = document.getElementById('loading-bar');
+  const loadingBar  = document.getElementById('loading-bar');
   const loadingFill = document.getElementById('loading-fill');
 
   btn.style.display = 'none';
   loadingText.style.display = 'block';
-  loadingBar.style.display = 'block';
+  loadingBar.style.display  = 'block';
 
-  // Simulate progress while loading
   let progress = 0;
   const progressInterval = setInterval(() => {
-    progress = Math.min(progress + Math.random() * 15, 85);
+    progress = Math.min(progress + Math.random() * 10, 88);
     loadingFill.style.width = progress + '%';
   }, 300);
 
@@ -367,21 +350,29 @@ async function init() {
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
     );
 
-    gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
-        delegate: "GPU"
-      },
-      runningMode: "VIDEO",
-      numHands: 2,
-    });
+    [gestureRecognizer, faceLandmarker] = await Promise.all([
+      GestureRecognizer.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO",
+        numHands: 2,
+      }),
+      FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO",
+        numFaces: 1,
+        outputFaceBlendshapes: true,
+      })
+    ]);
 
     clearInterval(progressInterval);
     loadingFill.style.width = '100%';
-
     await startCamera();
-
-    loadingFill.style.width = '100%';
     setTimeout(() => {
       document.getElementById('start-screen').style.display = 'none';
       document.getElementById('status-dot').classList.add('active');
@@ -400,11 +391,7 @@ async function init() {
 
 async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: 'user',
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    }
+    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
   });
   video.srcObject = stream;
   await new Promise(r => video.onloadedmetadata = r);
@@ -415,156 +402,241 @@ async function startCamera() {
 
 function resizeCanvas() {
   const wrap = document.getElementById('camera-wrap');
-  canvas.width = wrap.offsetWidth;
+  canvas.width  = wrap.offsetWidth;
   canvas.height = wrap.offsetHeight;
 }
-
 window.addEventListener('resize', resizeCanvas);
 
 function loop() {
-  animId = requestAnimationFrame(loop);
-
+  requestAnimationFrame(loop);
   if (!video.videoWidth || video.currentTime === lastVideoTime) return;
   lastVideoTime = video.currentTime;
 
-  // FPS
   const now = performance.now();
   if (lastFrameTime) {
     fpsHistory.push(1000 / (now - lastFrameTime));
     if (fpsHistory.length > 10) fpsHistory.shift();
-    const fps = Math.round(fpsHistory.reduce((a,b) => a+b) / fpsHistory.length);
-    document.getElementById('fps-counter').textContent = fps + ' FPS';
+    document.getElementById('fps-counter').textContent =
+      Math.round(fpsHistory.reduce((a, b) => a + b) / fpsHistory.length) + ' FPS';
   }
   lastFrameTime = now;
 
-  // Run recognition
-  const results = gestureRecognizer.recognizeForVideo(video, now);
+  const gestureResults = gestureRecognizer.recognizeForVideo(video, now);
+  const faceResults    = faceLandmarker.detectForVideo(video, now);
 
-  // Scale video to canvas
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  const cw = canvas.width;
-  const ch = canvas.height;
-
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const cw = canvas.width,     ch = canvas.height;
   const scale = Math.max(cw / vw, ch / vh);
-  const dw = vw * scale;
-  const dh = vh * scale;
-  const dx = (cw - dw) / 2;
-  const dy = (ch - dh) / 2;
+  const dw = vw * scale, dh = vh * scale;
+  const dx = (cw - dw) / 2, dy = (ch - dh) / 2;
 
   ctx.clearRect(0, 0, cw, ch);
 
-  const drawingUtils = new DrawingUtils(ctx);
+  if (faceResults.faceLandmarks?.length > 0) {
+    drawFaceOval(faceResults.faceLandmarks[0], dw, dh, dx, dy);
+  }
 
-  let topGesture = 'None';
-  let topConf = 0;
-  let handCount = 0;
-  let totalFingers = 0;
+  let topGesture = 'None', topConf = 0;
+  let handCount = 0, totalFingers = 0;
 
-  if (results.landmarks && results.landmarks.length > 0) {
-    handCount = results.landmarks.length;
+  if (gestureResults.landmarks?.length > 0) {
+    handCount = gestureResults.landmarks.length;
 
-    results.landmarks.forEach((landmarks, i) => {
-      // Scale landmarks from normalized [0,1] to canvas coords
-      const scaledLandmarks = landmarks.map(lm => ({
-        x: lm.x * dw + dx,
-        y: lm.y * dh + dy,
-        z: lm.z
+    gestureResults.landmarks.forEach((lm, i) => {
+      const scaled = lm.map(p => ({
+        x: p.x * dw + dx,
+        y: p.y * dh + dy,
+        z: p.z
       }));
+      drawHand(scaled);
+      totalFingers += countFingers(lm);
 
-      // Draw connections manually for the scaled coords
-      drawScaledHand(scaledLandmarks);
-
-      // Count fingers
-      totalFingers += countFingers(landmarks);
-
-      // Gestures
-      if (results.gestures[i] && results.gestures[i][0]) {
-        const g = results.gestures[i][0];
-        if (g.score > topConf) {
-          topConf = g.score;
-          topGesture = g.categoryName;
-        }
+      let gestName = 'None', gestConf = 0;
+      if (gestureResults.gestures[i]?.[0]) {
+        gestName = gestureResults.gestures[i][0].categoryName;
+        gestConf = gestureResults.gestures[i][0].score;
       }
+
+      const custom = detectCustomGesture(lm, gestureResults.landmarks);
+      if (custom) { gestName = custom; gestConf = 0.92; }
+
+      if (gestConf > topConf) { topConf = gestConf; topGesture = gestName; }
     });
   }
 
-  // Update panels
-  updatePanel(topGesture, topConf, totalFingers, handCount);
+  const faceExpr = detectFaceExpression(faceResults);
+  updatePanel(topGesture, topConf, totalFingers, handCount, faceExpr);
 }
 
-function drawScaledHand(landmarks) {
-  const connections = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [5,9],[9,10],[10,11],[11,12],
-    [9,13],[13,14],[14,15],[15,16],
-    [13,17],[17,18],[18,19],[19,20],
-    [0,17]
+// ─── Custom gestures ──────────────────────────────────────
+function fingerStates(lm) {
+  const wrist = lm[0];
+  const thumbExtended = Math.abs(lm[4].x - wrist.x) > Math.abs(lm[2].x - wrist.x) + 0.02;
+  return [
+    thumbExtended ? 1 : 0,
+    lm[8].y  < lm[6].y  ? 1 : 0,
+    lm[12].y < lm[10].y ? 1 : 0,
+    lm[16].y < lm[14].y ? 1 : 0,
+    lm[20].y < lm[18].y ? 1 : 0,
   ];
+}
 
-  // Draw connections
-  ctx.strokeStyle = '#00ff8866';
-  ctx.lineWidth = 2;
-  connections.forEach(([a, b]) => {
-    ctx.beginPath();
-    ctx.moveTo(landmarks[a].x, landmarks[a].y);
-    ctx.lineTo(landmarks[b].x, landmarks[b].y);
-    ctx.stroke();
+function dist2D(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function detectCustomGesture(lm, allLandmarks) {
+  const [thumb, index, middle, ring, pinky] = fingerStates(lm);
+
+  // 👌 OK
+  if (dist2D(lm[4], lm[8]) < 0.07 && middle && ring && pinky) return 'OK';
+
+  // 🤙 Shaka
+  if (thumb && !index && !middle && !ring && pinky) return 'Shaka';
+
+  // 🤞 Crossed fingers
+  if (!thumb && index && middle && !ring && !pinky &&
+      Math.abs(lm[8].x - lm[12].x) < 0.045) return 'Crossed';
+
+  // 👇 Pointing down
+  if (!thumb && index && !middle && !ring && !pinky &&
+      lm[8].y > lm[5].y + 0.04) return 'PointDown';
+
+  // 🫰 Finger snap (thumb near middle, index up)
+  if (dist2D(lm[4], lm[12]) < 0.07 && index && !ring && !pinky) return 'FingerSnap';
+
+  // 🫶 Heart hands (two hands, thumbs close together)
+  if (allLandmarks.length === 2) {
+    const other = allLandmarks.find(l => l !== lm);
+    if (other) {
+      const fo = fingerStates(other);
+      const tipsClose = dist2D(lm[4], other[4]) < 0.22 && dist2D(lm[8], other[8]) < 0.22;
+      if (thumb && fo[0] && tipsClose) return 'HeartHands';
+    }
+  }
+
+  return null;
+}
+
+// ─── Face expression ──────────────────────────────────────
+function detectFaceExpression(faceResults) {
+  if (!faceResults.faceBlendshapes?.length) return null;
+
+  const shapes = {};
+  faceResults.faceBlendshapes[0].categories.forEach(c => {
+    shapes[c.categoryName] = c.score;
   });
 
-  // Draw joints
-  landmarks.forEach((lm, i) => {
+  const get = n => shapes[n] || 0;
+  const smile    = (get('mouthSmileLeft') + get('mouthSmileRight')) / 2;
+  const jawOpen  = get('jawOpen');
+  const browDown = (get('browDownLeft') + get('browDownRight')) / 2;
+  const browUp   = get('browInnerUp');
+  const blinkL   = get('eyeBlinkLeft');
+  const blinkR   = get('eyeBlinkRight');
+  const frown    = (get('mouthFrownLeft') + get('mouthFrownRight')) / 2;
+
+  if ((blinkL > 0.6 && blinkR < 0.35) || (blinkR > 0.6 && blinkL < 0.35))
+    return { key: 'wink',     conf: Math.max(blinkL, blinkR) };
+  if (jawOpen > 0.4 && browUp > 0.3)
+    return { key: 'surprise', conf: (jawOpen + browUp) / 2 };
+  if (browDown > 0.35)
+    return { key: 'angry',    conf: browDown };
+  if (frown > 0.25 && smile < 0.2)
+    return { key: 'sad',      conf: frown };
+  if (smile > 0.3)
+    return { key: 'smile',    conf: smile };
+
+  return { key: 'neutral', conf: 0.5 };
+}
+
+// ─── Drawing ──────────────────────────────────────────────
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],
+  [0,17]
+];
+
+function drawHand(lm) {
+  ctx.strokeStyle = '#00ff8866';
+  ctx.lineWidth = 2;
+  HAND_CONNECTIONS.forEach(([a, b]) => {
+    ctx.beginPath();
+    ctx.moveTo(lm[a].x, lm[a].y);
+    ctx.lineTo(lm[b].x, lm[b].y);
+    ctx.stroke();
+  });
+  lm.forEach((p, i) => {
     const isTip = [4, 8, 12, 16, 20].includes(i);
     ctx.beginPath();
-    ctx.arc(lm.x, lm.y, isTip ? 6 : 3, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, isTip ? 6 : 3, 0, Math.PI * 2);
     ctx.fillStyle = isTip ? '#00ff88' : '#00ff8899';
     ctx.fill();
   });
 }
 
-function countFingers(landmarks) {
-  // landmarks is normalized [0,1]
-  const tips   = [4, 8, 12, 16, 20];
-  const bases  = [2, 6, 10, 14, 18];
+const FACE_OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,
+  397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,
+  234,127,162,21,54,103,67,109];
+
+function drawFaceOval(landmarks, dw, dh, dx, dy) {
+  ctx.strokeStyle = '#00aaff2a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  FACE_OVAL.forEach((idx, i) => {
+    const lm = landmarks[idx];
+    const x = lm.x * dw + dx, y = lm.y * dh + dy;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.stroke();
+}
+
+// ─── Panel ────────────────────────────────────────────────
+function countFingers(lm) {
+  const wrist = lm[0];
   let count = 0;
-
-  // Thumb: compare x distance
-  const thumbTip = landmarks[4];
-  const thumbBase = landmarks[2];
-  const wrist = landmarks[0];
-  if (Math.abs(thumbTip.x - wrist.x) > Math.abs(thumbBase.x - wrist.x)) count++;
-
-  // Other fingers: tip.y < pip.y means extended
-  for (let i = 1; i < 5; i++) {
-    if (landmarks[tips[i]].y < landmarks[bases[i]].y) count++;
-  }
+  if (Math.abs(lm[4].x - wrist.x) > Math.abs(lm[2].x - wrist.x)) count++;
+  [[8,6],[12,10],[16,14],[20,18]].forEach(([t, b]) => {
+    if (lm[t].y < lm[b].y) count++;
+  });
   return count;
 }
 
-let lastPanelGesture = '';
-
-function updatePanel(gesture, confidence, fingers, hands) {
-  const panelGesture = document.getElementById('panel-gesture');
-  const panelFingers = document.getElementById('panel-fingers');
-  const panelHands = document.getElementById('panel-hands');
-  const confFill = document.getElementById('conf-fill');
-
-  const label = GESTURE_LABELS[gesture] || gesture;
+function updatePanel(gesture, confidence, fingers, hands, faceExpr) {
   const noHands = hands === 0;
+  const gInfo = GESTURE_LABELS[gesture] || { label: gesture, emoji: '' };
 
-  panelGesture.textContent = noHands ? '—' : label;
-  panelGesture.className = 'panel-value' + (noHands || gesture === 'None' ? ' none' : '');
+  const gEl = document.getElementById('panel-gesture');
+  gEl.textContent = noHands ? '—' : (gInfo.emoji ? gInfo.emoji + ' ' + gInfo.label : gInfo.label);
+  gEl.className = 'panel-value' + (noHands || gesture === 'None' ? ' none' : '');
 
-  panelFingers.textContent = noHands ? '—' : fingers;
-  panelFingers.className = 'panel-value' + (noHands ? ' none' : '');
+  document.getElementById('conf-fill').style.width =
+    noHands ? '0%' : Math.round(confidence * 100) + '%';
 
-  panelHands.textContent = noHands ? '—' : hands;
-  panelHands.className = 'panel-value' + (noHands ? ' none' : '');
+  const fingEl = document.getElementById('panel-fingers');
+  fingEl.textContent = noHands ? '—' : fingers;
+  fingEl.className = 'panel-value' + (noHands ? ' none' : '');
 
-  confFill.style.width = noHands ? '0%' : Math.round(confidence * 100) + '%';
+  const handEl = document.getElementById('panel-hands');
+  handEl.textContent = noHands ? '—' : hands;
+  handEl.className = 'panel-value' + (noHands ? ' none' : '');
 
-  lastPanelGesture = gesture;
+  const faceEl   = document.getElementById('panel-face');
+  const faceFill = document.getElementById('face-fill');
+  if (faceExpr) {
+    const fi = FACE_LABELS[faceExpr.key];
+    faceEl.textContent = fi.emoji + ' ' + fi.label;
+    faceEl.className = 'panel-value face' + (faceExpr.key === 'neutral' ? ' none' : '');
+    faceFill.style.width = Math.round(faceExpr.conf * 100) + '%';
+  } else {
+    faceEl.textContent = '—';
+    faceEl.className = 'panel-value face none';
+    faceFill.style.width = '0%';
+  }
 }
 
 document.getElementById('start-btn').addEventListener('click', init);
