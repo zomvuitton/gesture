@@ -398,7 +398,7 @@ canvas {
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
 
-    <div id="dbg">
+    <div id="dbg-panel">
       <div class="dt">debug</div>
       <div id="d-fingers"></div>
       <div style="height:1px;background:#222;margin:3px 0"></div>
@@ -435,9 +435,7 @@ canvas {
   <h1>C.I.R.A.N.</h1>
   <p>Control Integrated Responsive AI Network</p>
   <div class="fields">
-    <label>Gemini API Key</label>
-    <input type="password" id="gemkey" placeholder="AIza...">
-    <label style="margin-top:4px">Spotify Client ID <span style="color:var(--t4)">(opsiyonel)</span></label>
+    <label>Spotify Client ID <span style="color:var(--t4)">(opsiyonel)</span></label>
     <input type="text" id="spotid" placeholder="client id">
   </div>
   <button id="startbtn">Başlat</button>
@@ -449,7 +447,7 @@ import { GestureRecognizer, FaceLandmarker, FilesetResolver }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
 // ── Config ────────────────────────────────────────────────
-let GEMINI_KEY = '';
+let GEMINI_KEY = 'AIzaSyBRmdWlqWb9QlkLRPtAPBIKrcOGCf7176Q';
 let SPOTIFY_ID = '';
 let spotifyToken = null;
 let models = false;
@@ -490,10 +488,7 @@ document.getElementById('clrbtn').onclick = () => document.getElementById('log')
 
 // ── Setup ─────────────────────────────────────────────────
 document.getElementById('startbtn').addEventListener('click', async () => {
-  GEMINI_KEY = document.getElementById('gemkey').value.trim();
   SPOTIFY_ID = document.getElementById('spotid').value.trim();
-
-  if (!GEMINI_KEY) { setSt('gemini api key gerekli'); return; }
 
   setSt('modeller yükleniyor...');
   document.getElementById('startbtn').disabled = true;
@@ -823,7 +818,7 @@ function send() {
 document.getElementById('dbgbtn').addEventListener('click', ()=>{
   debugOn = !debugOn;
   document.getElementById('dbgbtn').classList.toggle('on', debugOn);
-  document.getElementById('dbg').style.display = debugOn ? 'block' : 'none';
+  document.getElementById('dbg-panel').style.display = debugOn ? 'block' : 'none';
 });
 
 function dr(id, label, val, thr, pass) {
