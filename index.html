@@ -120,6 +120,7 @@ main {
   position: relative;
   background: #000;
   overflow: hidden;
+  isolation: isolate;
 }
 
 video {
@@ -142,7 +143,7 @@ canvas {
   opacity: 0.35;
 }
 .ccorner.tl { top: 10px; left: 10px; border-top: 1px solid #aaa; border-left: 1px solid #aaa; }
-.ccorner.tr { top: 10px; right: 10px; border-top: 1px solid #aaa; border-right: 1px solid #aaa; }
+.ccorner.tr { top: 10px; left: 10px; border-top: 1px solid #aaa; border-right: 1px solid #aaa; }
 .ccorner.bl { bottom: 10px; left: 10px; border-bottom: 1px solid #aaa; border-left: 1px solid #aaa; }
 .ccorner.br { bottom: 10px; right: 10px; border-bottom: 1px solid #aaa; border-right: 1px solid #aaa; }
 
@@ -150,7 +151,7 @@ canvas {
 #dbg {
   display: none;
   position: absolute;
-  top: 10px; right: 10px;
+  top: 10px; left: 10px;
   z-index: 10;
   background: rgba(0,0,0,0.88);
   border: 1px solid var(--s3);
@@ -447,7 +448,7 @@ import { GestureRecognizer, FaceLandmarker, FilesetResolver }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
 // ── Config ────────────────────────────────────────────────
-let GEMINI_KEY = 'AIzaSyBRmdWlqWb9QlkLRPtAPBIKrcOGCf7176Q';
+let GROQ_KEY = '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';
 let SPOTIFY_ID = '';
 let spotifyToken = null;
 let models = false;
@@ -460,6 +461,7 @@ const ctx    = canvas.getContext('2d');
 let lastT = -1, fpsH = [], lastF = 0;
 let debugOn = false;
 let lastGest = '', gestCool = false;
+let gestStartTime = null, gestFired = false;
 
 // ── Labels ────────────────────────────────────────────────
 const GL = {
@@ -590,24 +592,75 @@ function loop() {
 }
 
 // ── Gesture → command ─────────────────────────────────────
-const GCMDS = {
-  Thumb_Up:   'müziği çal',
-  Thumb_Down: 'müziği durdur',
-  Victory:    'sonraki şarkı',
-  Open_Palm:  'müziği duraklat',
-};
+const GCMDS = {};
 
 function handleGestCmd(g) {
-  if (g==='None' || g===lastGest || gestCool || !GCMDS[g]) return;
-  gestCool = true; lastGest = g;
-  setTimeout(()=>{ gestCool=false; lastGest=''; }, 2500);
-  addLog('gest', `jest: ${GL[g]||g} → "${GCMDS[g]}"`);
-  askAI(GCMDS[g]);
+  if (!GCMDS[g] || gestCool) { gestStartTime=null; gestFired=false; return; }
+
+  if (g !== lastGest) {
+    lastGest = g;
+    gestStartTime = performance.now();
+    gestFired = false;
+    return;
+  }
+
+  if (!gestFired && gestStartTime && (performance.now() - gestStartTime) >= 4000) {
+    gestFired = true;
+    gestCool = true;
+    setTimeout(()=>{ gestCool=false; gestStartTime=null; gestFired=false; lastGest=''; }, 3000);
+    addLog('gest', `jest: ${GL[g]||g} → "${GCMDS[g]}"`);
+    askAI(GCMDS[g]);
+  }
 }
 
 // ── AI (Gemini) ───────────────────────────────────────────
 const SYS = `Sen C.I.R.A.N., Türkçe konuşan kişisel bir asistansın.
 Kısa ve net cevap ver. Uygunsa doğrudan bir fonksiyon çağır.`;
+
+const GROQ_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_control',
+      description: 'Spotify müzik kontrolü',
+      parameters: {
+        type:'object',
+        properties: {
+          action: { type:'string', enum:['play','pause','next','previous','volume_up','volume_down','search_and_play'] },
+          query:  { type:'string', description:'Çalınacak şarkı/sanatçı' }
+        },
+        required:['action']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_reminder',
+      description: 'Hatırlatıcı kur',
+      parameters: {
+        type:'object',
+        properties: {
+          message: { type:'string' },
+          minutes: { type:'number' }
+        },
+        required:['message','minutes']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: "Web'de arama yap",
+      parameters: {
+        type:'object',
+        properties: { query: { type:'string' } },
+        required:['query']
+      }
+    }
+  }
+];
 
 const TOOLS = [{
   functionDeclarations: [
@@ -652,24 +705,27 @@ async function askAI(text) {
   if (!GEMINI_KEY) { addLog('err','api key yok'); return; }
 
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          system_instruction: { parts:[{text:SYS}] },
-          contents: [{ role:'user', parts:[{text}] }],
-          tools: TOOLS
-        })
-      }
-    );
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{role:'system',content:SYS},{role:'user',content:text}],
+        tools: GROQ_TOOLS,
+        tool_choice: 'auto',
+        max_tokens: 500
+      })
+    });
     const d = await r.json();
-    if (d.error) { addLog('err','gemini: '+d.error.message); return; }
+    if (d.error) { addLog('err','groq: '+d.error.message); return; }
 
-    for (const part of d.candidates?.[0]?.content?.parts||[]) {
-      if (part.text) { addLog('ai', part.text, 'ciran'); speak(part.text); }
-      if (part.functionCall) await execFn(part.functionCall.name, part.functionCall.args);
+    const msg = d.choices?.[0]?.message;
+    if (!msg) { addLog('err','boş yanıt'); return; }
+    if (msg.content) { addLog('ai', msg.content, 'ciran'); speak(msg.content); }
+    if (msg.tool_calls) {
+      for (const tc of msg.tool_calls) {
+        await execFn(tc.function.name, JSON.parse(tc.function.arguments));
+      }
     }
   } catch(e) {
     addLog('err','bağlantı hatası: '+e.message);
@@ -752,19 +808,20 @@ function doReminder(msg, min) {
 async function doSearch(query) {
   addLog('action',`aranıyor: "${query}"`);
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents:[{role:'user',parts:[{text:`Şu konuda kısaca bilgi ver: ${query}`}]}],
-          tools:[{googleSearch:{}}]
-        })
-      }
-    );
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {role:'system', content:'Sorulan konuda kısa ve net Türkçe bilgi ver. 2-3 cümle.'},
+          {role:'user', content:query}
+        ],
+        max_tokens: 300
+      })
+    });
     const d = await r.json();
-    const txt = d.candidates?.[0]?.content?.parts?.find(p=>p.text)?.text;
+    const txt = d.choices?.[0]?.message?.content;
     if (txt) { addLog('ai',txt,'arama'); speak(txt); }
     else addLog('err','arama sonucu alınamadı');
   } catch(e) { addLog('err','arama hatası: '+e.message); }
